@@ -3,6 +3,8 @@ import db from '../db.js';
 
 const router = Router();
 
+const SQLITE_CONSTRAINT_UNIQUE = 2067;
+
 const listEntrants = db.prepare('SELECT id, name, ticket_number FROM entrants ORDER BY id');
 const insertEntrant = db.prepare('INSERT INTO entrants (name, ticket_number) VALUES (?, ?)');
 
@@ -24,7 +26,7 @@ router.post('/', (req, res) => {
     const { lastInsertRowid } = insertEntrant.run(name, ticketNumber);
     res.status(201).json({ id: Number(lastInsertRowid), name, ticket_number: ticketNumber });
   } catch (err) {
-    if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+    if (err.errcode === SQLITE_CONSTRAINT_UNIQUE) {
       return res.status(409).json({ error: `Ticket ${ticketNumber} has already been entered` });
     }
     throw err;

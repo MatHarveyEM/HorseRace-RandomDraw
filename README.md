@@ -10,11 +10,13 @@ The server draws the winner first and saves it to the database. The race is then
 
 - **Front end:** plain HTML, CSS and JavaScript (ES modules) with [Three.js](https://threejs.org/) for the track
 - **Back end:** Node.js + [Express](https://expressjs.com/)
-- **Database:** SQLite via [better-sqlite3](https://github.com/WiseLibs/better-sqlite3), stored in `data/melbourne-cup.db`
+- **Database:** SQLite via Node's built-in [`node:sqlite`](https://nodejs.org/api/sqlite.html) module, stored in `data/melbourne-cup.db`
+
+There are no native modules to compile, so you don't need Python or C++ build tools.
 
 ## Run it locally
 
-You need **Node.js 22 or newer** (`node --version` to check; get it from [nodejs.org](https://nodejs.org/)).
+You need **Node.js 22.13 or newer**, and 24 or newer is recommended (`node --version` to check; get it from [nodejs.org](https://nodejs.org/)).
 
 ```bash
 # 1. Get the code
@@ -81,7 +83,9 @@ data/                 SQLite database file (git-ignored)
 
 ## Troubleshooting
 
-- **`npm install` fails building `better-sqlite3`:** it normally downloads a prebuilt binary. If none exists for your platform it compiles from source, which needs build tools: Xcode Command Line Tools on macOS (`xcode-select --install`), or "Desktop development with C++" from Visual Studio Build Tools on Windows. Using a current LTS Node release usually avoids this.
+- **`npm install` fails with `EPERM: operation not permitted` (Windows):** another program is holding files in `node_modules`, usually a running dev server, your editor, or OneDrive/antivirus. Stop the server, close other terminals in this folder, then run `Remove-Item -Recurse -Force node_modules` in PowerShell and `npm install` again.
+- **`ExperimentalWarning: SQLite is an experimental feature` on start:** Node 22 prints this for the built-in SQLite module. It's harmless, and Node 24 doesn't print it.
+- **`No such built-in module: node:sqlite`:** your Node is older than 22.13. Upgrade from [nodejs.org](https://nodejs.org/).
 - **`EADDRINUSE` on start:** something else is using port 3000. Pick another port as shown above.
 - **The track area is blank:** your browser needs WebGL. Check the browser console for errors.
 

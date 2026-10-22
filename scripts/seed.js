@@ -14,10 +14,8 @@ const PLACEHOLDER_ENTRANTS = [
 const insert = db.prepare('INSERT OR IGNORE INTO entrants (name, ticket_number) VALUES (?, ?)');
 
 let added = 0;
-db.transaction(() => {
-  for (const [name, ticketNumber] of PLACEHOLDER_ENTRANTS) {
-    added += insert.run(name, ticketNumber).changes;
-  }
-})();
+for (const [name, ticketNumber] of PLACEHOLDER_ENTRANTS) {
+  added += insert.run(name, ticketNumber).changes;
+}
 
 console.log(`Added ${added} placeholder entrant(s).`);
