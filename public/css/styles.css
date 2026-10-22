@@ -203,6 +203,24 @@ li.placeholder {
   font-style: italic;
 }
 
+/* Silks badge: saddle-cloth number on the entrant's racing colours */
+
+.silk {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  margin-right: 8px;
+  border: 2px solid var(--ink);
+  border-radius: 5px;
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-shadow: 0 0 2px #000, 0 0 2px #000;
+  vertical-align: middle;
+}
+
 /* Race */
 
 .race-panel {
@@ -213,12 +231,49 @@ li.placeholder {
 
 .race-header {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
 }
 
 .race-header h2 {
   margin-bottom: 0;
+}
+
+.race-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.laps-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+select {
+  padding: 8px 10px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background: #fff;
+  font: inherit;
+}
+
+.secondary-button {
+  padding: 7px 14px;
+  border: 2px solid var(--green-700);
+  background: transparent;
+  color: var(--green-700);
+}
+
+.secondary-button:hover:not(:disabled) {
+  background: var(--green-700);
+  color: #fff;
 }
 
 .start-button {
@@ -234,42 +289,279 @@ li.placeholder {
 
 .race-track {
   position: relative;
-  width: 100%;
-  min-height: 420px;
   flex: 1;
+  width: 100%;
+  min-height: 460px;
   border-radius: var(--radius);
   overflow: hidden;
-  background: var(--green-700);
+  background: #bfe6fa;
 }
 
-.race-track canvas {
+.race-track > canvas {
   display: block;
   position: absolute;
   inset: 0;
 }
 
+.race-labels,
+.race-hud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.race-labels {
+  z-index: 1;
+}
+
+.race-hud {
+  z-index: 2;
+}
+
+/* Name tags above the horses: just the number, plus the name for the top three */
+
+.horse-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #fff;
+  font: 700 12px/1 system-ui, sans-serif;
+  white-space: nowrap;
+}
+
+.horse-number {
+  display: grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 4px;
+  border: 2px solid var(--ink);
+  border-radius: 11px;
+  text-shadow: 0 0 2px #000;
+}
+
+.horse-name {
+  display: none;
+  padding: 4px 7px;
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  background: var(--green-900);
+}
+
+.horse-label[data-rank] .horse-name {
+  display: inline-block;
+}
+
+/* Stack the top three tags (2nd above 1st, 3rd above 2nd) so they don't overlap */
+.horse-label[data-rank='1'] {
+  padding-bottom: 50px;
+}
+
+.horse-label[data-rank='2'] {
+  padding-bottom: 100px;
+}
+
+/* Live leaderboard */
+
+.hud-board {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  width: 220px;
+  padding: 8px 10px;
+  border: 3px solid var(--ink);
+  border-radius: 8px;
+  background: rgb(13 43 29 / 0.88);
+  color: #fff;
+}
+
+.race-hud.suspense .hud-board {
+  visibility: hidden;
+}
+
+.hud-title {
+  margin-bottom: 6px;
+  color: var(--gold-light);
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.hud-rows {
+  position: relative;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hud-rows li {
+  position: absolute;
+  inset: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 24px;
+  font-size: 0.85rem;
+  transition: transform 0.35s ease, opacity 0.35s ease;
+}
+
+.hud-rows li.off-board {
+  opacity: 0;
+}
+
+.hud-rows .pos {
+  width: 18px;
+  color: var(--gold-light);
+  font-weight: 800;
+  text-align: right;
+}
+
+.hud-rows .silk {
+  width: 20px;
+  height: 20px;
+  margin-right: 0;
+}
+
+.hud-rows .name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Big call-outs: countdown, FINAL LAP, PHOTO FINISH */
+
+.hud-callout {
+  position: absolute;
+  top: 26%;
+  left: 50%;
+  opacity: 0;
+  color: var(--gold);
+  font: 900 clamp(2.4rem, 7vw, 5.5rem) / 1 system-ui, sans-serif;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  -webkit-text-stroke: 3px var(--ink);
+  paint-order: stroke fill;
+  text-shadow: 0 6px 0 var(--ink);
+  transform: translate(-50%, -50%);
+}
+
+.hud-callout.show {
+  animation: callout 1.4s ease-out forwards;
+}
+
+@keyframes callout {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.4);
+  }
+  15% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.12);
+  }
+  25%,
+  75% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.05);
+  }
+}
+
+.hud-flash {
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  opacity: 0;
+}
+
+.hud-flash.show {
+  animation: flash 0.8s ease-out;
+}
+
+@keyframes flash {
+  from {
+    opacity: 0.95;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* Commentary, TV lower-third style */
+
+.commentary {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 3;
+  padding: 12px 18px;
+  border-top: 3px solid var(--gold);
+  background: linear-gradient(to top, rgb(13 43 29 / 0.94), rgb(13 43 29 / 0.75));
+  color: #fff;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+/* Winner banner */
+
 .winner-banner {
-  padding: 16px;
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  z-index: 3;
+  min-width: min(420px, 80%);
+  padding: 14px 28px;
+  border: 3px solid var(--ink);
   border-radius: var(--radius);
   background: linear-gradient(135deg, var(--gold), var(--gold-light));
+  box-shadow: 0 6px 0 var(--ink);
   color: var(--green-900);
   text-align: center;
+  transform: translateX(-50%);
+  animation: banner 0.6s cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+
+@keyframes banner {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -30px) scale(0.8);
+  }
 }
 
 .winner-label {
   font-size: 0.9rem;
-  text-transform: uppercase;
   letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 .winner-name {
-  font-size: 2rem;
-  font-weight: 800;
+  font-size: 2.2rem;
+  font-weight: 900;
 }
 
-.commentary {
-  color: var(--muted);
-  font-style: italic;
+/* Fullscreen: the whole race panel fills the screen, for the office TV */
+
+.race-panel:fullscreen {
+  padding: 16px;
+  border-radius: 0;
+  background: var(--green-900);
+}
+
+.race-panel:fullscreen h2,
+.race-panel:fullscreen .laps-control {
+  color: var(--gold-light);
+}
+
+.race-panel:fullscreen .secondary-button {
+  border-color: var(--gold-light);
+  color: var(--gold-light);
+}
+
+.race-panel:fullscreen .race-track {
+  min-height: 0;
 }
 
 @media (max-width: 800px) {
@@ -279,6 +571,28 @@ li.placeholder {
   }
 
   .race-track {
-    min-height: 300px;
+    min-height: 420px;
+  }
+
+  .hud-board {
+    top: 8px;
+    left: 8px;
+    transform: scale(0.7);
+    transform-origin: top left;
+  }
+
+  .commentary {
+    padding: 8px 12px;
+    font-size: 0.9rem;
+  }
+
+  .winner-banner {
+    top: auto;
+    bottom: 70px;
+    padding: 10px 16px;
+  }
+
+  .winner-name {
+    font-size: 1.5rem;
   }
 }

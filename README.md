@@ -4,7 +4,19 @@ Picks a raffle winner by running a 3D horse race where each horse is an entrant.
 
 The server draws the winner first and saves it to the database. The race is then animated so that horse wins at the line.
 
-> **Status:** boilerplate. The API and database work end to end. The UI text is placeholder and the race uses placeholder boxes moving at constant speed.
+## The race
+
+- **Cel-shaded oval track** with a grandstand and cheering crowd, rails, winning post, infield lake and trees, drawn in a cartoon style with ink outlines
+- **Pick 1, 2, 3 or 5 laps.** The lead changes as the field moves through the pack, and the crowd gets louder in the final lap
+- **TV-style coverage:** the camera cuts between side-on, chase, head-on and blimp shots, with a live leaderboard, lap counter and name tags on the top three
+- **Race commentary** calls the start, lead changes, each lap, the bell and the turn for home
+- **Photo finish:** in a close race it drops into slow motion down the straight, hides the positions, then freezes with the winning nose on the line before revealing the winner
+- **Racing colours:** every entrant gets their own silks and saddle-cloth number, shown in the entrant list too, so people can spot their horse
+- **Fullscreen** button for putting the race on the office TV
+
+### How the winner is guaranteed
+
+The server draws the winner (`POST /api/draw`) and saves it before anything moves. The browser then choreographs the race backwards from that result (`public/js/race/script.js`): every horse's position is the pack's pace plus its own offset, and at the winner's finishing time the winner's offset is exactly zero while everyone else's is negative. Horses never move backwards, so nobody can reach the line first. `npm test` checks this over hundreds of simulated races.
 
 ## Stack
 
@@ -40,6 +52,7 @@ Open **http://localhost:3000** in your browser. Stop the server with `Ctrl+C`.
 | `npm run dev`   | Start the server and restart it on back-end changes  |
 | `npm start`     | Start the server without watching for changes        |
 | `npm run seed`  | Add six placeholder entrants (safe to run repeatedly)|
+| `npm test`      | Check the race always finishes with the drawn winner |
 
 Front-end changes (anything in `public/`) only need a browser refresh.
 
@@ -60,8 +73,15 @@ public/
   css/styles.css
   js/main.js          Page wiring: forms, buttons, lists
   js/api.js           fetch() wrappers for the API
-  js/race.js          Three.js scene and race animation (placeholder)
+  js/silks.js         Racing colours and saddle-cloth numbers for each entrant
+  js/race/index.js    The race: horses, lanes, leaderboard, commentary, slow motion
+  js/race/script.js   Race choreography that guarantees the drawn winner (no Three.js)
+  js/race/track.js    Oval track geometry and scenery
+  js/race/horse.js    Cel-shaded horse and jockey, gallop animation
+  js/race/camera.js   TV-style camera shots
+  js/race/toon.js     Cel-shading materials and outlines
 scripts/seed.js       Placeholder entrants
+test/                 Race script tests (node --test)
 data/                 SQLite database file (git-ignored)
 ```
 
@@ -88,6 +108,7 @@ data/                 SQLite database file (git-ignored)
 - **`No such built-in module: node:sqlite`:** your Node is older than 22.13. Upgrade from [nodejs.org](https://nodejs.org/).
 - **`EADDRINUSE` on start:** something else is using port 3000. Pick another port as shown above.
 - **The track area is blank:** your browser needs WebGL. Check the browser console for errors.
+- **The race looks slow or choppy:** the race slows down rather than skipping ahead when the computer can't keep up. Close other heavy tabs, or try a machine with a better graphics chip for the big screen.
 
 ## Scope
 
