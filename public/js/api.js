@@ -11,11 +11,11 @@ async function request(path, options = {}) {
   return body;
 }
 
-export const getEntrants = () => request('/api/entrants');
-
-export const addEntrant = (entrant) =>
-  request('/api/entrants', { method: 'POST', body: JSON.stringify(entrant) });
-
-export const drawWinner = () => request('/api/draw', { method: 'POST' });
+// Sends the field; the server picks and saves the winner and returns winnerIndex
+export const drawWinner = (entrants) =>
+  request('/api/draw', {
+    method: 'POST',
+    body: JSON.stringify({ entrants: entrants.map(({ name, ticket_number }) => ({ name, ticket_number })) }),
+  });
 
 export const getDraws = () => request('/api/draws');

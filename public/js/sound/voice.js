@@ -1,9 +1,12 @@
 // The race caller's voice, using the browser's built-in speech synthesis.
+// Pace 0-2 (calm, lively, frantic) speeds the voice up as the race builds.
 //
 // Calls come faster than anyone can say them, so:
 //   urgent lines (the start, the bell, the turn for home, the result) cut in straight away
 //   other lines wait for the current one to finish, and are dropped once they're stale
 const STALE_MS = 2500;
+const RATES = [1.1, 1.22, 1.38];
+const PITCHES = [1, 1.06, 1.14];
 
 export function createVoice({ onSpeakingChange = () => {} } = {}) {
   const synth = 'speechSynthesis' in window ? window.speechSynthesis : null;
@@ -31,12 +34,12 @@ export function createVoice({ onSpeakingChange = () => {} } = {}) {
     window.addEventListener('pagehide', () => synth.cancel());
   }
 
-  function speak(text, excited) {
+  function speak(text, pace) {
     const line = new SpeechSynthesisUtterance(text);
     line.lang = voice?.lang ?? 'en-AU';
     if (voice) line.voice = voice;
-    line.rate = excited ? 1.22 : 1.1;
-    line.pitch = excited ? 1.12 : 1;
+    line.rate = RATES[pace] ?? RATES[0];
+    line.pitch = PITCHES[pace] ?? PITCHES[0];
     line.onstart = () => onSpeakingChange(true);
     line.onend = line.onerror = () => {
       if (current !== line) return;
@@ -44,7 +47,7 @@ export function createVoice({ onSpeakingChange = () => {} } = {}) {
       onSpeakingChange(false);
       const next = waiting;
       waiting = null;
-      if (next && performance.now() - next.at < STALE_MS) speak(next.text, next.excited);
+      if (next && performance.now() - next.at < STALE_MS) speak(next.text, next.pace);
     };
     current = line;
     synth.speak(line);
@@ -52,7 +55,7 @@ export function createVoice({ onSpeakingChange = () => {} } = {}) {
 
   return {
     supported: Boolean(synth),
-    say(text, { urgent = false, excited = false } = {}) {
+    say(text, { urgent = false, pace = 0 } = {}) {
       if (!synth || !enabled) return;
       const spoken = text.replace(/#\d+\s+/g, ''); // say names, not saddle-cloth numbers
       try {
@@ -60,11 +63,11 @@ export function createVoice({ onSpeakingChange = () => {} } = {}) {
           waiting = null;
           current = null;
           synth.cancel();
-          speak(spoken, excited);
+          speak(spoken, pace);
         } else if (current) {
-          waiting = { text: spoken, excited, at: performance.now() };
+          waiting = { text: spoken, pace, at: performance.now() };
         } else {
-          speak(spoken, excited);
+          speak(spoken, pace);
         }
       } catch (err) {
         // Speech is a nice extra; never let it interrupt the race
