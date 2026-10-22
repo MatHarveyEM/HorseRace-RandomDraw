@@ -1,6 +1,8 @@
 import * as api from './api.js';
 import { createRace } from './race/index.js';
 import { silksBackground, silksFor } from './silks.js';
+import { createEffects } from './sound/effects.js';
+import { createVoice } from './sound/voice.js';
 
 const els = {
   form: document.querySelector('#entrant-form'),
@@ -11,6 +13,7 @@ const els = {
   racePanel: document.querySelector('#race-panel'),
   laps: document.querySelector('#laps'),
   fullscreen: document.querySelector('#fullscreen'),
+  sound: document.querySelector('#sound'),
   startButton: document.querySelector('#start-race'),
   track: document.querySelector('#race-track'),
   winnerBanner: document.querySelector('#winner-banner'),
@@ -19,7 +22,9 @@ const els = {
   commentary: document.querySelector('#commentary'),
 };
 
-const race = createRace(els.track);
+const effects = createEffects();
+const voice = createVoice({ onSpeakingChange: (speaking) => effects.duck(speaking) });
+const race = createRace(els.track, { effects });
 let racing = false;
 
 // Builds list items with textContent so entrant names can't inject HTML
@@ -91,6 +96,8 @@ els.startButton.addEventListener('click', async () => {
   els.laps.disabled = true;
   els.winnerBanner.hidden = true;
 
+  effects.start(); // audio has to start from a click
+
   try {
     // The server draws the winner first; the race is then choreographed to match
     const { winner, entrants } = await api.drawWinner();
@@ -98,8 +105,9 @@ els.startButton.addEventListener('click', async () => {
     race.setField(entrants);
     await race.run(winner.id, {
       laps: Number(els.laps.value),
-      onCommentary: (text) => {
+      onCommentary: (text, { speech = text, urgent, excited } = {}) => {
         els.commentary.textContent = text;
+        voice.say(speech, { urgent, excited });
       },
     });
 
@@ -115,6 +123,31 @@ els.startButton.addEventListener('click', async () => {
     els.laps.disabled = false;
   }
 });
+
+// Sound on/off, remembered in this browser
+function setSound(on) {
+  effects.setEnabled(on);
+  voice.setEnabled(on);
+  els.sound.textContent = on ? 'Sound on' : 'Sound off';
+  els.sound.setAttribute('aria-pressed', String(on));
+  try {
+    localStorage.setItem('melbourne-cup-sound', on ? 'on' : 'off');
+  } catch {
+    // storage unavailable (private window); the setting just won't be remembered
+  }
+}
+
+els.sound.addEventListener('click', () => {
+  const on = !effects.enabled;
+  setSound(on);
+  if (on) effects.start();
+});
+
+try {
+  setSound(localStorage.getItem('melbourne-cup-sound') !== 'off');
+} catch {
+  setSound(true);
+}
 
 els.fullscreen.addEventListener('click', () => {
   if (document.fullscreenElement) document.exitFullscreen();

@@ -1,6 +1,8 @@
 // The 3D race. main.js only needs two calls:
 //   setField(entrants)                     line up one horse per entrant behind the barrier
 //   run(winnerId, { laps, onCommentary })  run the race, resolving once the winner is announced
+// onCommentary(text, { speech, urgent, excited }) gets each call, with a shorter
+// version for the spoken commentary. Pass { effects } to createRace for sound.
 import * as THREE from 'three';
 import { OutlineEffect } from 'three/addons/effects/OutlineEffect.js';
 import { CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
@@ -21,11 +23,14 @@ const ROW_HEIGHT = 26;
 // Camera rotation during the race: [shot, seconds]
 const RACE_SHOTS = [['tracking', 6], ['chase', 5], ['blimp', 5], ['inside', 5], ['headon', 4.5]];
 const LEAD_CALLS = ['takes the lead!', 'hits the front!', 'surges to the lead!', 'grabs the lead!', 'goes to the front!'];
+const BACK_IN_FRONT_CALLS = ['is back in front!', 'regains the lead!', 'hits the front again!'];
+// How close each camera shot is to the horses, for the volume of the hooves
+const SHOT_NEARNESS = { idle: 0, start: 0.5, tracking: 0.7, inside: 0.6, chase: 0.85, headon: 1, blimp: 0.25, stretch: 1, finish: 0.9, winner: 0.6 };
 
 const pick = (options) => options[Math.floor(Math.random() * options.length)];
 const tag = (horse) => `#${horse.number} ${horse.name}`;
 
-export function createRace(container) {
+export function createRace(container, { effects = null } = {}) {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   container.appendChild(renderer.domElement);
@@ -99,6 +104,7 @@ export function createRace(container) {
         shotClock: 0,
         boardClock: 0,
         said: new Set(),
+        hasLed: new Set(),
       };
       hud.showBoard(horses, laps);
       director.cut('start');
@@ -146,6 +152,10 @@ export function createRace(container) {
     const order = [...horses].sort((a, b) => b.s - a.s);
     if (raceDt > 0) chooseLanes(order, raceDt);
 
+    const leaders = order.slice(0, 3);
+    const leaderSpeed = raceDt > 0 ? leaders.reduce((sum, h) => sum + h.step, 0) / leaders.length / raceDt : 0;
+    race.speed = Math.min(1, leaderSpeed / CRUISE_SPEED);
+
     for (const horse of order) {
       const before = horse.lane;
       horse.lane += (horse.targetLane - horse.lane) * (1 - Math.exp(-raceDt * 2.2));
@@ -163,13 +173,15 @@ export function createRace(container) {
     race.countStep = step;
     if (step < 3) {
       hud.callout(String(3 - step));
+      effects?.cue('beep');
       return 0.4;
     }
     race.phase = 'running';
     race.clock = 0;
     hud.callout('GO!');
+    effects?.cue('go');
     director.cut(RACE_SHOTS[0][0]);
-    race.say(pick(["And they're racing!", "They're off and racing!", 'The barriers fly open and away they go!']));
+    race.say(pick(["And they're racing!", "They're off and racing!", 'The barriers fly open and away they go!']), { urgent: true });
     return 0.4;
   }
 
@@ -182,7 +194,13 @@ export function createRace(container) {
     hud.setSuspense(false);
     labelRenderer.domElement.hidden = false;
     hud.setTitle('RESULT');
-    race.say(`${tag(winner)} wins the Melbourne Cup by ${describeMargin(script.margin)}!`);
+    const margin = describeMargin(script.margin);
+    race.say(`${tag(winner)} wins the Melbourne Cup by ${margin}!`, {
+      speech: `And the winner is... ${winner.name}! By ${margin}!`,
+      urgent: true,
+      excited: true,
+    });
+    effects?.cue('cheer');
     confetti.burst();
     race.resolve();
   }
@@ -193,32 +211,50 @@ export function createRace(container) {
     const [leader, second, third] = order;
     const toLine = script.finishTime - race.time;
     const lap = Math.min(race.laps, Math.floor(Math.max(0, leader.s) / LAP_LENGTH) + 1);
-    const homeStraight = lap === race.laps && leader.s > script.distance - HOME_STRAIGHT_RUN;
+    // Called as the leaders round the home turn, so it isn't talked over by the finish
+    const homeTurn = lap === race.laps && leader.s > script.distance - HOME_STRAIGHT_RUN - 25;
 
     if (lap > race.lap) {
       race.lap = lap;
       race.lastLeadCall = race.time;
       if (lap === race.laps) {
         hud.callout('FINAL LAP');
-        race.say(`The bell rings, final lap! ${tag(leader)} leads from ${tag(second)}.`);
+        effects?.cue('bell');
+        race.say(`The bell rings, final lap! ${tag(leader)} leads from ${tag(second)}.`, {
+          speech: `The bell! Final lap! ${leader.name} leads.`,
+          urgent: true,
+          excited: true,
+        });
       } else {
         const chasers = third ? `, ${tag(second)} second, ${tag(third)} third` : ` from ${tag(second)}`;
-        race.say(`Lap ${lap} of ${race.laps}: ${tag(leader)} leads${chasers}.`);
+        race.say(`Lap ${lap} of ${race.laps}: ${tag(leader)} leads${chasers}.`, {
+          speech: `Lap ${lap}. ${leader.name} leads from ${second.name}.`,
+        });
       }
     } else if (race.leaderId !== null && leader.id !== race.leaderId && race.time - race.lastLeadCall > 4 && toLine > 3) {
-      race.say(`${tag(leader)} ${pick(LEAD_CALLS)}`);
+      race.say(`${tag(leader)} ${pick(race.hasLed.has(leader.id) ? BACK_IN_FRONT_CALLS : LEAD_CALLS)}`);
       race.lastLeadCall = race.time;
     }
     race.leaderId = leader.id;
+    race.hasLed.add(leader.id);
 
-    if (homeStraight && !race.said.has('home')) {
+    if (homeTurn && !race.said.has('home')) {
       race.said.add('home');
       director.cut('stretch');
-      race.say(`They turn for home! ${tag(leader)} and ${tag(second)} fight it out down the straight!`);
+      effects?.cue('roar');
+      race.say(`They turn for home! ${tag(leader)} and ${tag(second)} fight it out down the straight!`, {
+        speech: `They turn for home! ${leader.name} and ${second.name}!`,
+        urgent: true,
+        excited: true,
+      });
     }
     if (toLine < 2.2 && !race.said.has('line')) {
       race.said.add('line');
-      race.say(race.close ? "Here they come... it's going to be desperately close!" : 'Here they come to the line!');
+      if (race.close) {
+        race.say("Here they come... it's going to be desperately close!", { speech: "It's going to be desperately close!", excited: true });
+      } else {
+        race.say('Here they come to the line!', { excited: true });
+      }
     }
 
     // Slow motion into the line; a photo-finish camera if it's close
@@ -240,7 +276,8 @@ export function createRace(container) {
       race.timeScale = 0;
       hud.flash();
       hud.callout('PHOTO FINISH');
-      race.say('Photo finish! Too close to call...');
+      effects?.cue('gasp');
+      race.say('Photo finish! Too close to call...', { speech: 'Photo finish!', urgent: true, excited: true });
       return;
     }
 
@@ -283,7 +320,7 @@ export function createRace(container) {
       hud.updateBoard(race.order, race.lap, race.laps);
     }
 
-    if (race.phase === 'finished') return race.clock < 8 ? 1 : 0.4;
+    if (race.phase === 'finished') return race.clock < 8 ? 1 : race.clock < 14 ? 0.4 : 0.1;
     if (race.said.has('home')) return 1;
     return race.lap === race.laps && race.laps > 1 ? 0.7 : 0.35;
   }
@@ -321,6 +358,13 @@ export function createRace(container) {
     venue.update(time, excitement);
     confetti.update(dt, race?.winner.group.position);
     director.update(focus());
+    effects?.update({
+      excitement,
+      gallop: race?.speed ?? 0,
+      runners: horses.length,
+      near: SHOT_NEARNESS[director.shot] ?? 0.5,
+      timeScale: race && race.phase !== 'countdown' ? race.timeScale : 1,
+    });
 
     outlines.render(scene, camera);
     labelRenderer.render(scene, camera);

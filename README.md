@@ -9,7 +9,8 @@ The server draws the winner first and saves it to the database. The race is then
 - **Cel-shaded oval track** with a grandstand and cheering crowd, rails, winning post, infield lake and trees, drawn in a cartoon style with ink outlines
 - **Pick 1, 2, 3 or 5 laps.** The lead changes as the field moves through the pack, and the crowd gets louder in the final lap
 - **TV-style coverage:** the camera cuts between side-on, chase, head-on and blimp shots, with a live leaderboard, lap counter and name tags on the top three
-- **Race commentary** calls the start, lead changes, each lap, the bell and the turn for home
+- **Race commentary** calls the start, lead changes, each lap, the bell and the turn for home, both on screen and **spoken aloud** by the browser's built-in voice (an Australian voice when one is installed)
+- **Crowd sounds**, synthesised live with no audio files: a murmur at the barrier, a roar that builds through the final lap, hoofbeats that get louder in close-up shots, the starting and final-lap bells, a muffled slow-motion effect, a gasp and hush at a photo finish, and cheering, applause and whistles for the winner. The **Sound on/off** button mutes everything and is remembered in that browser
 - **Photo finish:** in a close race it drops into slow motion down the straight, hides the positions, then freezes with the winning nose on the line before revealing the winner
 - **Racing colours:** every entrant gets their own silks and saddle-cloth number, shown in the entrant list too, so people can spot their horse
 - **Fullscreen** button for putting the race on the office TV
@@ -74,6 +75,8 @@ public/
   js/main.js          Page wiring: forms, buttons, lists
   js/api.js           fetch() wrappers for the API
   js/silks.js         Racing colours and saddle-cloth numbers for each entrant
+  js/sound/effects.js Crowd, hoofbeats, bells and cheering (Web Audio, no files)
+  js/sound/voice.js   Spoken commentary (browser speech synthesis)
   js/race/index.js    The race: horses, lanes, leaderboard, commentary, slow motion
   js/race/script.js   Race choreography that guarantees the drawn winner (no Three.js)
   js/race/track.js    Oval track geometry and scenery
@@ -108,6 +111,8 @@ data/                 SQLite database file (git-ignored)
 - **`No such built-in module: node:sqlite`:** your Node is older than 22.13. Upgrade from [nodejs.org](https://nodejs.org/).
 - **`EADDRINUSE` on start:** something else is using port 3000. Pick another port as shown above.
 - **The track area is blank:** your browser needs WebGL. Check the browser console for errors.
+- **No sound:** check the Sound button says "Sound on" and the computer isn't muted. Browsers only allow sound after a click, so it starts when you press Start race.
+- **The commentary voice sounds robotic or American:** the voice comes from your operating system and browser. On Windows, add an English (Australia) voice under Settings > Time & language > Speech; Microsoft Edge also has natural-sounding online voices.
 - **The race looks slow or choppy:** the race slows down rather than skipping ahead when the computer can't keep up. Close other heavy tabs, or try a machine with a better graphics chip for the big screen.
 
 ## Scope
