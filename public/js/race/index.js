@@ -6,10 +6,11 @@
 import * as THREE from 'three';
 import { OutlineEffect } from 'three/addons/effects/OutlineEffect.js';
 import { CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
-import { silksBackground } from '../silks.js';
+import { badgeStyle } from '../silks.js';
 import { createDirector } from './camera.js';
 import { HORSE_LENGTH, NOSE, createHorse, gallop } from './horse.js';
 import { CRUISE_SPEED, ROW_GAP, createRaceScript, startingSlot } from './script.js';
+import { INK } from './toon.js';
 import { HOME_STRAIGHT_RUN, LAP_LENGTH, buildVenue, isOnStraight, trackPoint } from './track.js';
 
 const LANE_WIDTH = 1.35;
@@ -34,7 +35,7 @@ export function createRace(container, { effects = null } = {}) {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   container.appendChild(renderer.domElement);
-  const outlines = new OutlineEffect(renderer, { defaultThickness: 0.0035, defaultColor: [0.06, 0.06, 0.06] });
+  const outlines = new OutlineEffect(renderer, { defaultThickness: 0.0035, defaultColor: new THREE.Color(INK).toArray() });
 
   const labelRenderer = new CSS2DRenderer();
   labelRenderer.domElement.className = 'race-labels';
@@ -423,7 +424,7 @@ function createHud(container) {
       for (const horse of horses) {
         const row = document.createElement('li');
         row.innerHTML = '<span class="pos"></span><span class="silk"></span><span class="name"></span>';
-        row.querySelector('.silk').style.background = silksBackground(horse.silks);
+        Object.assign(row.querySelector('.silk').style, badgeStyle(horse.silks));
         row.querySelector('.silk').textContent = horse.number;
         row.querySelector('.name').textContent = horse.name;
         row.style.transform = `translateY(${Math.min(rows.size, BOARD_ROWS) * ROW_HEIGHT}px)`;
@@ -470,7 +471,8 @@ function createConfetti(scene) {
   group.add(mesh);
   scene.add(group);
 
-  const colours = [0xd4af37, 0xd7263d, 0xffffff, 0x2a9d8f, 0x3a86ff, 0xff006e].map((c) => new THREE.Color(c));
+  // Energy Matrix colours
+  const colours = [0xe47454, 0x415a7e, 0x9dc0d7, 0xccebf7, 0xffffff, 0x2b3340].map((c) => new THREE.Color(c));
   const bits = Array.from({ length: COUNT }, (_, i) => {
     mesh.setColorAt(i, colours[i % colours.length]);
     return { position: new THREE.Vector3(), velocity: new THREE.Vector3(), rotation: new THREE.Euler(), spin: new THREE.Vector3() };

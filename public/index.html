@@ -3,7 +3,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Melbourne Cup</title>
+  <title>Melbourne Cup Sweep | Energy Matrix Group</title>
+  <link rel="icon" href="/img/emg-mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/vendor/fonts/montserrat/400.css">
+  <link rel="stylesheet" href="/vendor/fonts/montserrat/500.css">
+  <link rel="stylesheet" href="/vendor/fonts/montserrat/700.css">
+  <link rel="stylesheet" href="/vendor/fonts/montserrat/800.css">
   <link rel="stylesheet" href="/css/styles.css">
   <script type="importmap">
     {
@@ -17,13 +22,20 @@
 </head>
 <body>
   <header class="site-header">
-    <h1>Melbourne Cup</h1>
-    <p class="tagline">The race that stops the office.</p>
+    <div class="brand">
+      <img class="brand-logo" src="/img/emg-logo.svg" alt="Energy Matrix Group" width="153" height="58">
+      <div class="app-title">
+        <p class="eyebrow">Office sweep</p>
+        <h1>Melbourne <span class="accent">Cup</span></h1>
+      </div>
+    </div>
+    <p class="header-tab">The race that<br>stops the office</p>
   </header>
 
   <main class="layout">
     <div class="sidebar">
       <section class="panel" aria-labelledby="entrants-heading">
+        <p class="eyebrow">The field</p>
         <h2 id="entrants-heading">Entrants <span id="entrant-count" class="count">0</span></h2>
 
         <form id="entrant-form" class="entrant-form">
@@ -45,7 +57,8 @@
       </section>
 
       <section class="panel" aria-labelledby="history-heading">
-        <h2 id="history-heading">Past winners</h2>
+        <p class="eyebrow">Hall of fame</p>
+        <h2 id="history-heading">Past <span class="accent">winners</span></h2>
         <ol id="draw-list" class="draw-list">
           <li class="placeholder">Winners from previous races will be listed here.</li>
         </ol>
@@ -54,7 +67,10 @@
 
     <section id="race-panel" class="panel race-panel" aria-labelledby="race-heading">
       <div class="race-header">
-        <h2 id="race-heading">The track</h2>
+        <div>
+          <p class="eyebrow">Race day</p>
+          <h2 id="race-heading">The <span class="accent">track</span></h2>
+        </div>
         <div class="race-controls">
           <label class="laps-control">
             <span>Laps</span>
@@ -67,7 +83,7 @@
           </label>
           <button id="sound" class="secondary-button" type="button" aria-pressed="true">Sound on</button>
           <button id="fullscreen" class="secondary-button" type="button">Fullscreen</button>
-          <button id="start-race" class="start-button" type="button">Start race</button>
+          <button id="start-race" class="start-button" type="button">Start race <span aria-hidden="true">&rarr;</span></button>
         </div>
       </div>
 
@@ -83,7 +99,8 @@
   </main>
 
   <footer class="site-footer">
-    <p>Office raffle draw. The winner is drawn at random and saved before the barriers open.</p>
+    <img src="/img/emg-logo-reversed.svg" alt="Energy Matrix Group" width="131" height="52">
+    <p>Office Melbourne Cup sweep. The winner is drawn at random and saved before the barriers open.</p>
   </footer>
 </body>
 </html>

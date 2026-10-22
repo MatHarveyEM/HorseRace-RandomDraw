@@ -2,16 +2,48 @@
 // the field (ordered by id), so the sidebar list and the 3D race always agree.
 // The saddle-cloth number is the position plus one.
 
+const WHITE = '#ffffff';
+const NAVY = '#2b3340';
+
+// Energy Matrix brand colours (logo and site palette), each with accents that
+// contrast with it. Every colour/pattern pair is unique for the first 50 runners.
+const COLOURS = [
+  ['#415a7e', ['#e47454', WHITE, '#ccebf7']], // slate
+  ['#e47454', [NAVY, WHITE]], // coral
+  ['#9dc0d7', ['#415a7e', NAVY, '#e47454']], // sky
+  [NAVY, ['#e47454', '#ccebf7', WHITE]], // navy
+  ['#13612e', [WHITE, '#f5a524']], // green
+  ['#f5a524', [NAVY, '#415a7e']], // amber
+  ['#1159af', [WHITE, '#ccebf7']], // blue
+  ['#ccebf7', ['#415a7e', '#e47454', NAVY]], // ice
+  ['#b82105', [WHITE, NAVY]], // red
+  ['#f7630c', [NAVY, WHITE]], // orange
+];
 const PATTERNS = ['plain', 'hoops', 'sash', 'stripes', 'quarters'];
 
 export function silksFor(index) {
-  const hue = Math.round((index * 137.508) % 360); // golden angle keeps neighbours distinct
+  const round = Math.floor(index / COLOURS.length);
+  const [primary, accents] = COLOURS[index % COLOURS.length];
   return {
     number: index + 1,
-    primary: `hsl(${hue}, 78%, 46%)`,
-    secondary: index % 3 === 0 ? 'hsl(0, 0%, 97%)' : `hsl(${(hue + 150) % 360}, 85%, 62%)`,
-    pattern: PATTERNS[index % PATTERNS.length],
+    primary,
+    secondary: accents[round % accents.length],
+    pattern: PATTERNS[(index + round) % PATTERNS.length],
+    ...numberColours(primary),
   };
+}
+
+// Saddle-cloth number colours on the primary colour: navy on light colours,
+// white on dark ones, with a halo so it still reads over a pattern
+function numberColours(hex) {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+  const light = 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.55;
+  return light ? { ink: NAVY, halo: WHITE } : { ink: WHITE, halo: NAVY };
+}
+
+// Inline styles for a number badge on the entrant's silks
+export function badgeStyle(silks) {
+  return { background: silksBackground(silks), color: silks.ink, textShadow: `0 0 2px ${silks.halo}, 0 0 2px ${silks.halo}` };
 }
 
 // CSS background that mimics the silks pattern, for swatches

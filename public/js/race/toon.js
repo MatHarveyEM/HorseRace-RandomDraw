@@ -2,7 +2,7 @@
 // ink outlines for instanced meshes (OutlineEffect handles everything else).
 import * as THREE from 'three';
 
-export const INK = 0x1b1b1b;
+export const INK = 0x1f2633; // near-black Energy Matrix navy
 
 const gradientMap = new THREE.DataTexture(new Uint8Array([90, 170, 255]), 3, 1, THREE.RedFormat);
 gradientMap.minFilter = THREE.NearestFilter;

@@ -17,6 +17,12 @@ export const HOME_STRAIGHT_RUN = STRAIGHT * 0.8; // from the home turn to the fi
 
 const BEND = Math.PI * RADIUS;
 const GRANDSTAND_FRONT = RADIUS + TRACK_WIDTH + 14;
+// In the infield facing the grandstand, placed to sit in the photo-finish shot beside the winning post
+const BILLBOARD = { x: 26, z: -11, width: 18, height: 4.5, lift: 0.8 };
+
+// Energy Matrix colours
+const SLATE = 0x415a7e;
+const CORAL = 0xe47454;
 
 // World position and direction of travel at a point on the track
 export function trackPoint(s, offset, out = { x: 0, z: 0, dx: 1, dz: 0 }) {
@@ -94,6 +100,7 @@ export function buildVenue(scene) {
   addWinningPost(scene);
   addLake(scene);
   addTrees(scene, random);
+  addSignage(scene);
   addHillsAndClouds(scene, random);
   const crowd = addGrandstand(scene, random);
 
@@ -188,7 +195,7 @@ function addWinningPost(scene) {
 
   const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 4.6, 8), toon(0xffffff));
   pole.position.y = 2.3;
-  const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 0.12, 24), toon(0xd7263d));
+  const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 0.12, 24), toon(CORAL));
   disc.rotation.x = Math.PI / 2;
   disc.position.y = 4.9;
   const centre = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.14, 24), toon(0xffffff));
@@ -215,6 +222,7 @@ function addTrees(scene, random) {
   const spots = [];
   const inInfield = (x, z) => Math.abs(z) < RADIUS - 13 && Math.abs(x) < STRAIGHT / 2 + RADIUS - 8;
   const nearLake = (x, z) => (x / 22) ** 2 + (z / 11) ** 2 < 1;
+  const blocksBillboard = (x) => Math.abs(x - BILLBOARD.x) < BILLBOARD.width / 2 + 4;
   const onTrackOrStand = (x, z) => {
     const nearestCentreX = Math.max(-STRAIGHT / 2, Math.min(STRAIGHT / 2, x));
     const distance = Math.hypot(x - nearestCentreX, z);
@@ -225,7 +233,7 @@ function addTrees(scene, random) {
   while (spots.length < 34) {
     const x = (random() * 2 - 1) * (STRAIGHT / 2 + RADIUS - 8);
     const z = (random() * 2 - 1) * (RADIUS - 13);
-    if (inInfield(x, z) && !nearLake(x, z) && !onTrackOrStand(x, z)) spots.push([x, z]);
+    if (inInfield(x, z) && !nearLake(x, z) && !blocksBillboard(x) && !onTrackOrStand(x, z)) spots.push([x, z]);
   }
   while (spots.length < 130) {
     const angle = random() * Math.PI * 2;
@@ -262,6 +270,84 @@ function addTrees(scene, random) {
     scene.add(mesh);
     addInstancedOutline(mesh, 0.06);
   }
+}
+
+// Energy Matrix signage: boards on the inside rail of both straights facing out
+// (so they sit behind the horses in TV shots from outside the track), and a
+// billboard in the infield facing the grandstand
+function addSignage(scene) {
+  const logo = new THREE.MeshBasicMaterial({ map: logoTexture() });
+  const name = new THREE.MeshBasicMaterial({ map: textTexture('MELBOURNE CUP', SLATE, CORAL) });
+  const board = new THREE.BoxGeometry(5.6, 1.4, 0.15);
+  const p = {};
+  const straights = [
+    [-HOME_STRAIGHT_RUN, STRAIGHT - HOME_STRAIGHT_RUN],
+    [STRAIGHT + BEND - HOME_STRAIGHT_RUN, 2 * STRAIGHT + BEND - HOME_STRAIGHT_RUN],
+  ];
+  let count = 0;
+  for (const [from, to] of straights) {
+    for (let s = from + 4; s <= to - 4; s += 7) {
+      if (Math.abs(s) < 9) continue; // keep the photo-finish shot clear
+      trackPoint(s, -1.6, p);
+      const sign = new THREE.Mesh(board, count++ % 2 ? name : logo);
+      sign.position.set(p.x, 0.85, p.z);
+      sign.rotation.y = Math.atan2(-p.dz, p.dx); // front face points out across the track
+      scene.add(sign);
+    }
+  }
+
+  const billboard = new THREE.Group();
+  billboard.position.set(BILLBOARD.x, 0, BILLBOARD.z);
+  const panel = new THREE.Mesh(new THREE.BoxGeometry(BILLBOARD.width, BILLBOARD.height, 0.3), logo);
+  panel.position.y = BILLBOARD.lift + BILLBOARD.height / 2;
+  billboard.add(panel);
+  for (const side of [-1, 1]) {
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, BILLBOARD.lift + 0.2, 8), toon(SLATE));
+    leg.position.set(side * BILLBOARD.width * 0.35, (BILLBOARD.lift + 0.2) / 2, 0);
+    billboard.add(leg);
+  }
+  scene.add(billboard);
+}
+
+// The Energy Matrix logo on a white board
+function logoTexture() {
+  const texture = canvasTexture(1024, 256, (ctx, w, h) => {
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, w, h);
+  });
+  const image = new Image();
+  image.onload = () => {
+    const height = 196;
+    const width = (height * image.naturalWidth) / image.naturalHeight;
+    texture.image.getContext('2d').drawImage(image, (1024 - width) / 2, 30, width, height);
+    texture.needsUpdate = true;
+  };
+  image.src = '/img/emg-logo.svg';
+  return texture;
+}
+
+// White Montserrat text on a coloured board with an accent stripe. Drawn
+// straight away, then redrawn once the brand font has loaded.
+function textTexture(text, background, stripe, { width = 1024, height = 256, size = 92, repeat = 1 } = {}) {
+  const draw = (ctx) => {
+    ctx.fillStyle = `#${background.toString(16).padStart(6, '0')}`;
+    ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = `#${stripe.toString(16).padStart(6, '0')}`;
+    ctx.fillRect(0, height - height / 10, width, height / 10);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `800 ${size}px Montserrat, system-ui, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, width / 2, height * 0.45);
+  };
+  const texture = canvasTexture(width, height, draw);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.repeat.x = repeat;
+  document.fonts?.load(`800 ${size}px Montserrat`).then(() => {
+    draw(texture.image.getContext('2d'));
+    texture.needsUpdate = true;
+  }, () => {});
+  return texture;
 }
 
 function addHillsAndClouds(scene, random) {
@@ -306,18 +392,20 @@ function addGrandstand(scene, random) {
 
   for (let i = 0; i < tiers; i++) {
     const height = 0.8 + (i + 1) * tierRise;
-    const tier = new THREE.Mesh(new THREE.BoxGeometry(length, height, tierDepth), toon(i % 2 ? 0xe9e0c8 : 0xf6efdc));
+    const tier = new THREE.Mesh(new THREE.BoxGeometry(length, height, tierDepth), toon(i % 2 ? 0xedf2f7 : 0xf7fafc));
     tier.position.set(centreX, height / 2, GRANDSTAND_FRONT + tierDepth * (i + 0.5));
     stand.add(tier);
   }
 
   const back = GRANDSTAND_FRONT + tiers * tierDepth;
-  const wall = new THREE.Mesh(new THREE.BoxGeometry(length, 11, 0.6), toon(0xf6efdc));
+  const wall = new THREE.Mesh(new THREE.BoxGeometry(length, 11, 0.6), toon(0xf7fafc));
   wall.position.set(centreX, 5.5, back + 0.3);
-  const roof = new THREE.Mesh(new THREE.BoxGeometry(length + 2, 0.5, tiers * tierDepth + 3), toon(0x1d4d34));
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(length + 2, 0.5, tiers * tierDepth + 3), toon(SLATE));
   roof.position.set(centreX, 11.2, back - (tiers * tierDepth) / 2 - 1);
   roof.rotation.x = -0.06;
-  const fascia = new THREE.Mesh(new THREE.BoxGeometry(length + 2, 0.7, 0.25), toon(0xd4af37));
+  // Coral fascia carrying the company name along the front of the roof
+  const fasciaText = textTexture('ENERGY MATRIX GROUP  •  MELBOURNE CUP  •', CORAL, SLATE, { width: 2048, height: 96, size: 54, repeat: 3 });
+  const fascia = new THREE.Mesh(new THREE.BoxGeometry(length + 2, 1.1, 0.25), new THREE.MeshBasicMaterial({ map: fasciaText }));
   fascia.position.set(centreX, 10.7, GRANDSTAND_FRONT - 2.4);
   stand.add(wall, roof, fascia);
 
@@ -340,7 +428,7 @@ function addGrandstand(scene, random) {
 
   const bodies = new THREE.InstancedMesh(new THREE.CapsuleGeometry(0.22, 0.38, 2, 6), toon(0xffffff, { name: 'crowd' }), people.length);
   const heads = new THREE.InstancedMesh(new THREE.SphereGeometry(0.17, 8, 6), toon(0xffffff, { name: 'crowd' }), people.length);
-  const shirts = [0xd7263d, 0xf4a261, 0x2a9d8f, 0x264653, 0xe9c46a, 0x8338ec, 0x3a86ff, 0xffffff, 0xff006e, 0x06d6a0].map((c) => new THREE.Color(c));
+  const shirts = [CORAL, SLATE, 0x9dc0d7, 0x2b3340, 0xccebf7, 0xffffff, 0xf5a524, 0x13612e, 0x1159af, 0xf7630c].map((c) => new THREE.Color(c));
   const skins = [0xf1c27d, 0xe0ac69, 0xc68642, 0x8d5524, 0xffdbac].map((c) => new THREE.Color(c));
   people.forEach((_, i) => {
     bodies.setColorAt(i, shirts[Math.floor(random() * shirts.length)]);
