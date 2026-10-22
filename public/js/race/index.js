@@ -12,7 +12,7 @@ import { CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
 import { badgeStyle } from '../silks.js';
 import { createDirector } from './camera.js';
 import { createCaller } from './caller.js';
-import { HORSE_LENGTH, NOSE, createHorse, gallop } from './horse.js';
+import { HORSE_LENGTH, createHorse, gallop } from './horse.js';
 import { LOOK_AHEAD, createPack } from './pack.js';
 import { CRUISE_SPEED, ROW_GAP, createRaceScript, startingSlot } from './script.js';
 import { INK } from './toon.js';
@@ -81,7 +81,10 @@ export function createRace(container, { effects = null } = {}) {
       });
     }
     venue.setQuality(settings);
-    for (const horse of horses) horse.shadow.visible = !shadows; // a soft blob instead
+    for (const horse of horses) {
+      horse.shadow.visible = !shadows; // a soft blob instead
+      horse.setDetail(level);
+    }
     resize();
   }
 
@@ -99,7 +102,7 @@ export function createRace(container, { effects = null } = {}) {
   }
 
   function placeHorse(horse, yawOffset = 0) {
-    trackPoint(horse.s - NOSE, horse.y, point);
+    trackPoint(horse.s - horse.nose, horse.y, point);
     horse.group.position.set(point.x, 0, point.z);
     horse.group.rotation.y = Math.atan2(-point.dz, point.dx) - yawOffset;
   }
@@ -112,7 +115,7 @@ export function createRace(container, { effects = null } = {}) {
       horse.dispose();
     }
     horses = entrants.map((entrant, index) => {
-      const horse = createHorse(entrant, index);
+      const horse = createHorse(entrant, index, { detail: quality.level });
       const slot = startingSlot(index);
       Object.assign(horse, { s: -slot.row * ROW_GAP, y: INSIDE + 0.1 + slot.lane * START_LANE_WIDTH, step: 0 });
       horse.shadow.visible = !renderer.shadowMap.enabled;
@@ -372,6 +375,11 @@ export function createRace(container, { effects = null } = {}) {
       timeScale: race && race.phase !== 'countdown' ? race.timeScale : 1,
     });
 
+    const standing = !race || race.phase === 'countdown';
+    for (const horse of horses) {
+      if (standing) gallop(horse, 0, 0, 0, time);
+      horse.updateDetail(camera);
+    }
     outlines.render(scene, camera);
     labelRenderer.render(scene, camera);
   });

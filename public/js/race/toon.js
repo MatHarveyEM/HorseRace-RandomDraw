@@ -25,15 +25,20 @@ const shared = new Map();
 
 // A toon material. Plain colours are cached and shared; pass `map` for a unique one.
 // rim: false for big flat surfaces (ground, track) that would glow at a distance.
-export function toon(color, { map = null, outline = true, rim = true, ...rest } = {}) {
-  const key = !map && `${color}:${outline}:${rim}:${JSON.stringify(rest)}`;
+// extend: { name, compile(shader) } adds shader code, giving a unique material
+// whose program is shared with others extended the same way.
+export function toon(color, { map = null, outline = true, rim = true, extend = null, ...rest } = {}) {
+  const key = !map && !extend && `${color}:${outline}:${rim}:${JSON.stringify(rest)}`;
   if (key && shared.has(key)) return shared.get(key);
 
   const material = new THREE.MeshToonMaterial({ color, gradientMap, map, ...rest });
   if (!outline) material.userData.outlineParameters = { visible: false };
-  if (rim) {
-    material.onBeforeCompile = addRimLight;
-    material.customProgramCacheKey = () => 'rim';
+  if (rim || extend) {
+    material.onBeforeCompile = (shader) => {
+      extend?.compile(shader);
+      if (rim) addRimLight(shader);
+    };
+    material.customProgramCacheKey = () => `${rim ? 'rim' : ''}:${extend?.name ?? ''}`;
   }
   if (key) shared.set(key, material);
   return material;

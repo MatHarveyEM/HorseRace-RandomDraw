@@ -7,7 +7,8 @@ Add entrants in the browser (they're kept in that browser's local storage, so th
 ## The race
 
 - **A painterly, Breath of the Wild-inspired course:** soft cel shading with warm rim light, sun shadows that follow the action, a meadow of swaying grass and wildflowers, lush trees, a painted sky and hazy snow-capped mountains, plus the grandstand, crowd, lake and winning post
-- **Detailed horses and jockeys:** sculpted horses in seven coat colours with pinto patches, socks and blazes, nodding heads and streaming tails; jockeys in patterned silks with helmets, goggles and reins, riding harder in the straight
+- **Sculpted horses and jockeys:** each horse is one seamless, smooth model built the way a sculptor would, from muscle, bone and tendon masses blended together (shoulders, hindquarters, forearms, gaskins, knees, hocks, fetlocks and hooves, a head with cheeks, brow, eyes and nostrils). It moves on a real skeleton, so joints bend smoothly. Seven coat colours, with crisp pinto patches, socks, a star, stripe or blaze, and a glossy coat; a bridle, saddle, saddle cloth with the horse's number and girth that fit the horse's shape. Jockeys wear their silks (hoops, stripes, sash or quarters, with matching sleeves), a silk-covered skull cap, goggles, breeches and boots, with a range of skin tones
+- **A real gallop:** the legs follow a four-beat racing gallop. Each hoof lands, stays planted while the horse passes over it and pushes off, then the leg folds and reaches forward again. The neck pumps in time and the tail streams out. The jockey keeps their feet in the irons and hands on the reins, crouches over the withers, and pushes hands-and-heels in the finish. Standing horses fidget at the barrier
 - **Horses don't run through each other:** they hug the rail, plan ahead to go around runners they're catching, and are kept apart if they touch (`public/js/race/pack.js`)
 - **Pick 1, 2, 3 or 5 laps.** The lead changes as the field moves through the pack, and the crowd gets louder in the final lap
 - **TV-style coverage:** the camera cuts between side-on, chase, head-on and blimp shots, with a live leaderboard, lap counter and name tags on the top three
@@ -16,7 +17,7 @@ Add entrants in the browser (they're kept in that browser's local storage, so th
 - **Photo finish:** in a close race it drops into slow motion down the straight, hides the positions, then freezes with the winning nose on the line before revealing the winner
 - **Racing colours:** every entrant gets their own silks (brand colours and patterns) and saddle-cloth number, shown in the entrant list too, so people can spot their horse
 - **Fullscreen** button for putting the race on the office TV
-- **Graphics quality** starts high and steps down automatically on slower computers. Add `?quality=low`, `?quality=medium` or `?quality=high` to the address to fix it
+- **Graphics quality** starts high and steps down automatically on slower computers. Add `?quality=low`, `?quality=medium` or `?quality=high` to the address to fix it. Like a game, horses near the camera are drawn in fine detail and distant ones more simply
 
 ## Branding
 
@@ -62,7 +63,7 @@ Open **http://localhost:3000** in your browser. Stop the server with `Ctrl+C`.
 | --------------- | ---------------------------------------------------- |
 | `npm run dev`   | Start the server and restart it on back-end changes  |
 | `npm start`     | Start the server without watching for changes        |
-| `npm test`      | Check the draw API, that the race always finishes with the drawn winner, that horses don't overlap, and that the caller never gives the result away early |
+| `npm test`      | Check the draw API, that the race always finishes with the drawn winner, that horses don't overlap, that the caller never gives the result away early, and that the horse model is sound and its hooves stay planted |
 
 Front-end changes (anything in `public/`) only need a browser refresh.
 
@@ -95,11 +96,17 @@ public/
   js/race/pack.js     Keeps horses from running through each other (no Three.js)
   js/race/caller.js   The race caller's commentary (no Three.js)
   js/race/track.js    Oval track, sky, mountains, grass, trees and scenery
-  js/race/horse.js    Horse and jockey models, gallop animation
-  js/race/shapes.js   Smooth lofted shapes the horses and jockeys are sculpted from
+  js/race/horse.js    Horses on the track: skeleton, level of detail, jockey's hands and feet
+  js/race/anatomy.js  The horse and jockey sculpts and their skeleton (no Three.js)
+  js/race/sculpt.js   Turns blended shapes into one smooth mesh, with skin weights (no Three.js)
+  js/race/tack.js     Saddle cloth, saddle, girth and bridle, fitted to the horse (no Three.js)
+  js/race/model.js    Builds the meshes at each level of detail (no Three.js)
+  js/race/model-worker.js  Runs model.js in the background so the page stays responsive
+  js/race/gait.js     The gallop: where every hoof and joint is through the stride (no Three.js)
+  js/race/paint.js    Coat colours, markings and silks for each horse and rider
   js/race/camera.js   TV-style camera shots
   js/race/toon.js     Cel-shading materials and outlines
-test/                 API, race script, pack and caller tests (node --test)
+test/                 API, race script, pack, caller and model tests (node --test)
 data/                 SQLite database file (git-ignored)
 ```
 
