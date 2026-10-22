@@ -1,6 +1,6 @@
 # Melbourne Cup
 
-Picks a raffle winner by running a 3D horse race where each horse is an entrant.
+Energy Matrix Group's office Melbourne Cup sweep. It picks a raffle winner by running a 3D horse race where each horse is an entrant.
 
 The server draws the winner first and saves it to the database. The race is then animated so that horse wins at the line.
 
@@ -12,8 +12,18 @@ The server draws the winner first and saves it to the database. The race is then
 - **Race commentary** calls the start, lead changes, each lap, the bell and the turn for home, both on screen and **spoken aloud** by the browser's built-in voice (an Australian voice when one is installed)
 - **Crowd sounds**, synthesised live with no audio files: a murmur at the barrier, a roar that builds through the final lap, hoofbeats that get louder in close-up shots, the starting and final-lap bells, a muffled slow-motion effect, a gasp and hush at a photo finish, and cheering, applause and whistles for the winner. The **Sound on/off** button mutes everything and is remembered in that browser
 - **Photo finish:** in a close race it drops into slow motion down the straight, hides the positions, then freezes with the winning nose on the line before revealing the winner
-- **Racing colours:** every entrant gets their own silks and saddle-cloth number, shown in the entrant list too, so people can spot their horse
+- **Racing colours:** every entrant gets their own silks (brand colours and patterns) and saddle-cloth number, shown in the entrant list too, so people can spot their horse
 - **Fullscreen** button for putting the race on the office TV
+
+## Branding
+
+The app follows the Energy Matrix Group brand from [energymatrix.com.au](https://www.energymatrix.com.au/):
+
+- **Colours** (CSS variables at the top of `public/css/styles.css`): slate `#415A7E`, coral `#E47454`, navy `#2B3340`, sky `#9DC0D7`, ice `#CCEBF7`, grey `#718096`
+- **Type:** Montserrat, served from `node_modules/@fontsource/montserrat` so it works offline
+- **Style:** square corners, thin rules, two-tone slate and coral headings with coral eyebrows, outline coral buttons, faint background diamonds, the angled slate header tab and a navy footer
+- **Logos** in `public/img/`: `emg-logo.svg` (header and trackside signage), `emg-logo-reversed.svg` (footer) and `emg-mark.svg` (browser tab icon), taken from the company website
+- **On the course:** Energy Matrix boards on the inside rail, a billboard in the infield beside the winning post (so it appears in the photo-finish shot), the company name along the grandstand roof, a slate and coral grandstand, a coral winning post, and jockey silks, crowd and confetti in brand colours
 
 ### How the winner is guaranteed
 
@@ -71,7 +81,8 @@ server/
   routes/draws.js     POST /api/draw, GET /api/draws
 public/
   index.html          The single page: entrant list, track, winner banner
-  css/styles.css
+  css/styles.css      Energy Matrix brand styles
+  img/                Energy Matrix logos
   js/main.js          Page wiring: forms, buttons, lists
   js/api.js           fetch() wrappers for the API
   js/silks.js         Racing colours and saddle-cloth numbers for each entrant

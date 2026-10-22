@@ -129,8 +129,8 @@ export function createHorse(entrant, index) {
     ctx.fillRect(0, 0, w, h);
     ctx.fillStyle = silks.primary;
     ctx.fillRect(0, h - 16, w, 16);
-    ctx.fillStyle = '#151515';
-    ctx.font = 'bold 62px system-ui, sans-serif';
+    ctx.fillStyle = '#2b3340';
+    ctx.font = '800 62px Montserrat, system-ui, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(String(silks.number), w / 2, h / 2 - 6);
@@ -148,6 +148,7 @@ export function createHorse(entrant, index) {
   const number = document.createElement('span');
   number.className = 'horse-number';
   number.style.background = silks.primary;
+  number.style.color = silks.ink;
   number.textContent = silks.number;
   const name = document.createElement('span');
   name.className = 'horse-name';

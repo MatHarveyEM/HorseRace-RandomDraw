@@ -17,8 +17,10 @@ app.use('/api/entrants', entrantsRouter);
 app.use('/api', drawsRouter);
 app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }));
 
-// Front end: Three.js is served straight from node_modules so no CDN is needed
+// Front end: Three.js and the Montserrat font are served straight from
+// node_modules, so nothing needs a CDN and it all works offline
 app.use('/vendor/three', express.static(path.join(ROOT, 'node_modules', 'three')));
+app.use('/vendor/fonts/montserrat', express.static(path.join(ROOT, 'node_modules', '@fontsource', 'montserrat')));
 app.use(express.static(path.join(ROOT, 'public')));
 
 app.use((err, req, res, next) => {

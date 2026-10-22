@@ -1,6 +1,6 @@
 import * as api from './api.js';
 import { createRace } from './race/index.js';
-import { silksBackground, silksFor } from './silks.js';
+import { badgeStyle, silksFor } from './silks.js';
 import { createEffects } from './sound/effects.js';
 import { createVoice } from './sound/voice.js';
 
@@ -45,7 +45,7 @@ function silkBadge(index) {
   const silks = silksFor(index);
   const badge = document.createElement('span');
   badge.className = 'silk';
-  badge.style.background = silksBackground(silks);
+  Object.assign(badge.style, badgeStyle(silks));
   badge.textContent = silks.number;
   return badge;
 }
@@ -158,6 +158,9 @@ document.addEventListener('fullscreenchange', () => {
   els.fullscreen.textContent = document.fullscreenElement ? 'Exit fullscreen' : 'Fullscreen';
 });
 
-Promise.all([refreshEntrants(), refreshDraws()]).catch((err) => {
+// Wait for the brand font so the saddle-cloth numbers are drawn in Montserrat
+const fontsReady = document.fonts?.load('800 62px Montserrat').catch(() => {}) ?? Promise.resolve();
+
+Promise.all([fontsReady.then(refreshEntrants), refreshDraws()]).catch((err) => {
   els.commentary.textContent = `Couldn't reach the server: ${err.message}`;
 });

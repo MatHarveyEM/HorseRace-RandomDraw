@@ -5,11 +5,11 @@ import { TRACK_WIDTH, trackPoint } from './track.js';
 // Each shot returns [camera position, look-at point, field of view].
 // focus = { s: middle of the leading group, leaderS, winner: Object3D, time }
 const SHOTS = {
-  // Before the race: a slow sweep across the field waiting at the start
+  // Before the race: a slow sweep along the outside rail, looking back at the
+  // field at the barrier with the winning post and the billboard behind
   idle: (at, focus) => {
-    const swing = Math.sin(focus.time * 0.12) * 0.6;
-    const centre = at(-4, TRACK_WIDTH * 0.45, 1);
-    return [[centre[0] + Math.sin(swing) * 24, 7, centre[2] + Math.cos(swing) * 20], centre, 45];
+    const s = 8 + Math.sin(focus.time * 0.12) * 4;
+    return [at(s, TRACK_WIDTH + 5, 4.2), at(1, 3, 1.5), 44];
   },
   start: (at) => [at(10, TRACK_WIDTH + 3, 3), at(-3, TRACK_WIDTH * 0.45, 1.2), 40],
   tracking: (at, { s }) => [at(s + 3, TRACK_WIDTH + 11, 6.5), at(s, TRACK_WIDTH * 0.35, 1.2), 44],
