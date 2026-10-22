@@ -1,5 +1,6 @@
 import * as api from './api.js';
-import { createRace } from './race.js';
+import { createRace } from './race/index.js';
+import { silksBackground, silksFor } from './silks.js';
 
 const els = {
   form: document.querySelector('#entrant-form'),
@@ -7,6 +8,9 @@ const els = {
   entrantList: document.querySelector('#entrant-list'),
   entrantCount: document.querySelector('#entrant-count'),
   drawList: document.querySelector('#draw-list'),
+  racePanel: document.querySelector('#race-panel'),
+  laps: document.querySelector('#laps'),
+  fullscreen: document.querySelector('#fullscreen'),
   startButton: document.querySelector('#start-race'),
   track: document.querySelector('#race-track'),
   winnerBanner: document.querySelector('#winner-banner'),
@@ -16,17 +20,29 @@ const els = {
 };
 
 const race = createRace(els.track);
+let racing = false;
 
 // Builds list items with textContent so entrant names can't inject HTML
-function listItem(label, meta) {
+function listItem(label, meta, badge) {
   const li = document.createElement('li');
   const labelEl = document.createElement('span');
   const metaEl = document.createElement('span');
   labelEl.textContent = label;
+  if (badge) labelEl.prepend(badge);
   metaEl.textContent = meta;
   metaEl.className = 'meta';
   li.append(labelEl, metaEl);
   return li;
+}
+
+// Saddle-cloth number on the entrant's racing colours
+function silkBadge(index) {
+  const silks = silksFor(index);
+  const badge = document.createElement('span');
+  badge.className = 'silk';
+  badge.style.background = silksBackground(silks);
+  badge.textContent = silks.number;
+  return badge;
 }
 
 function renderList(listEl, items, emptyText, toItem) {
@@ -43,15 +59,15 @@ function renderList(listEl, items, emptyText, toItem) {
 async function refreshEntrants() {
   const entrants = await api.getEntrants();
   els.entrantCount.textContent = entrants.length;
-  renderList(els.entrantList, entrants, '[Placeholder] No entrants yet. Add the first one above.', (e) =>
-    listItem(e.name, `#${e.ticket_number}`),
+  renderList(els.entrantList, entrants, 'No entrants yet. Add the first one above.', (e, index) =>
+    listItem(e.name, `#${e.ticket_number}`, silkBadge(index)),
   );
-  race.setField(entrants);
+  if (!racing) race.setField(entrants);
 }
 
 async function refreshDraws() {
   const draws = await api.getDraws();
-  renderList(els.drawList, draws, '[Placeholder] Winners from previous races will be listed here.', (d) =>
+  renderList(els.drawList, draws, 'Winners from previous races will be listed here.', (d) =>
     listItem(d.winner_name, `#${d.winner_ticket_number} · ${new Date(d.drawn_at).toLocaleString()}`),
   );
 }
@@ -70,26 +86,43 @@ els.form.addEventListener('submit', async (event) => {
 });
 
 els.startButton.addEventListener('click', async () => {
+  racing = true;
   els.startButton.disabled = true;
+  els.laps.disabled = true;
   els.winnerBanner.hidden = true;
 
   try {
-    // The server draws the winner first; the race is then animated to match
+    // The server draws the winner first; the race is then choreographed to match
     const { winner, entrants } = await api.drawWinner();
-    els.commentary.textContent = "[Placeholder] And they're off!";
+    const number = entrants.findIndex((e) => e.id === winner.id) + 1;
     race.setField(entrants);
-    await race.run(winner.id);
+    await race.run(winner.id, {
+      laps: Number(els.laps.value),
+      onCommentary: (text) => {
+        els.commentary.textContent = text;
+      },
+    });
 
-    els.winnerName.textContent = winner.name;
+    els.winnerName.textContent = `#${number} ${winner.name}`;
     els.winnerTicket.textContent = `Ticket #${winner.ticket_number}`;
     els.winnerBanner.hidden = false;
-    els.commentary.textContent = `[Placeholder] ${winner.name} takes the Cup!`;
     await refreshDraws();
   } catch (err) {
     els.commentary.textContent = err.message;
   } finally {
+    racing = false;
     els.startButton.disabled = false;
+    els.laps.disabled = false;
   }
+});
+
+els.fullscreen.addEventListener('click', () => {
+  if (document.fullscreenElement) document.exitFullscreen();
+  else els.racePanel.requestFullscreen?.();
+});
+
+document.addEventListener('fullscreenchange', () => {
+  els.fullscreen.textContent = document.fullscreenElement ? 'Exit fullscreen' : 'Fullscreen';
 });
 
 Promise.all([refreshEntrants(), refreshDraws()]).catch((err) => {
