@@ -11,10 +11,9 @@
     "seed": "node scripts/seed.js"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=22.13"
   },
   "dependencies": {
-    "better-sqlite3": "^13.0.3",
     "express": "^5.3.0",
     "three": "^0.186.1"
   }
