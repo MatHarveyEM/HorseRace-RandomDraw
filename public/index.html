@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Melbourne Cup</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "/vendor/three/build/three.module.js",
+        "three/addons/": "/vendor/three/examples/jsm/"
+      }
+    }
+  </script>
+  <script type="module" src="/js/main.js"></script>
+</head>
+<body>
+  <header class="site-header">
+    <h1>Melbourne Cup</h1>
+    <p class="tagline">[Placeholder] The race that stops the office.</p>
+  </header>
+
+  <main class="layout">
+    <div class="sidebar">
+      <section class="panel" aria-labelledby="entrants-heading">
+        <h2 id="entrants-heading">Entrants <span id="entrant-count" class="count">0</span></h2>
+
+        <form id="entrant-form" class="entrant-form">
+          <label>
+            <span>Name</span>
+            <input name="name" placeholder="e.g. Jo Bloggs" autocomplete="off" required>
+          </label>
+          <label>
+            <span>Ticket #</span>
+            <input name="ticket_number" placeholder="e.g. 042" autocomplete="off" required>
+          </label>
+          <button type="submit">Add entrant</button>
+        </form>
+        <p id="form-message" class="form-message" role="status"></p>
+
+        <ol id="entrant-list" class="entrant-list">
+          <li class="placeholder">[Placeholder] No entrants yet. Add the first one above.</li>
+        </ol>
+      </section>
+
+      <section class="panel" aria-labelledby="history-heading">
+        <h2 id="history-heading">Past winners</h2>
+        <ol id="draw-list" class="draw-list">
+          <li class="placeholder">[Placeholder] Winners from previous races will be listed here.</li>
+        </ol>
+      </section>
+    </div>
+
+    <section class="panel race-panel" aria-labelledby="race-heading">
+      <div class="race-header">
+        <h2 id="race-heading">The track</h2>
+        <button id="start-race" class="start-button" type="button">Start race</button>
+      </div>
+
+      <div id="race-track" class="race-track" aria-label="3D race track"></div>
+
+      <div id="winner-banner" class="winner-banner" role="status" hidden>
+        <p class="winner-label">And the winner is...</p>
+        <p id="winner-name" class="winner-name">[Placeholder winner]</p>
+        <p id="winner-ticket" class="winner-ticket">Ticket #000</p>
+      </div>
+
+      <p id="commentary" class="commentary">[Placeholder] Race commentary will appear here.</p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>[Placeholder] Office raffle draw. The server picks the winner before the gates open.</p>
+  </footer>
+</body>
+</html>
