@@ -48,8 +48,14 @@ export function createEffects() {
     slowMotion.type = 'lowpass';
     slowMotion.frequency.value = 18000;
     slowMotion.connect(ducker);
+    // The crowd is pink noise through a gentle low-pass: warm, not hissy
+    const warmth = ctx.createBiquadFilter();
+    warmth.type = 'lowpass';
+    warmth.frequency.value = 2600;
+    warmth.Q.value = 0.5;
+    warmth.connect(slowMotion);
     const crowd = ctx.createGain();
-    crowd.connect(slowMotion);
+    crowd.connect(warmth);
     const hooves = ctx.createGain();
     hooves.gain.value = 0.45;
     hooves.connect(slowMotion);
@@ -97,7 +103,6 @@ export function createEffects() {
     const roar = gain(0, crowd);
     const roarVoice = loop(band(750, 2.5, roar));
     roarVoice.connect(band(1250, 3, roar));
-    loop(band(2400, 0.8, gain(0.35, roar)));
 
     audio = { noise, ducker, slowMotion, crowd, hooves, cues, loops, ambience, babble, roar };
     setInterval(tick, TICK_MS);
@@ -110,8 +115,9 @@ export function createEffects() {
     const now = ctx.currentTime;
     const live = performance.now() - state.updatedAt < 500; // the page is animating
     const boost = now < state.roarUntil ? 0.7 : 0;
-    // Hushed = holding its breath for the photo: a low, tense murmur
-    const level = state.hushed ? 0.18 : Math.min(1.4, (live ? state.excitement : 0) + boost);
+    // Silent between races; hushed = holding its breath for the photo
+    const excitement = live && state.excitement >= 0.15 ? state.excitement : 0;
+    const level = state.hushed ? 0.18 : Math.min(1.4, excitement + boost);
     const slow = live ? state.timeScale : 1;
 
     // Near silent between races, a murmur at the barrier, a roar in the straight
@@ -289,9 +295,21 @@ export function createEffects() {
   }
 }
 
+// Pink noise (Paul Kellet's filter): softer and warmer than white noise
 function noiseBuffer(ctx, seconds) {
   const buffer = ctx.createBuffer(1, ctx.sampleRate * seconds, ctx.sampleRate);
   const data = buffer.getChannelData(0);
-  for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+  let [b0, b1, b2, b3, b4, b5, b6] = [0, 0, 0, 0, 0, 0, 0];
+  for (let i = 0; i < data.length; i++) {
+    const white = Math.random() * 2 - 1;
+    b0 = 0.99886 * b0 + white * 0.0555179;
+    b1 = 0.99332 * b1 + white * 0.0750759;
+    b2 = 0.969 * b2 + white * 0.153852;
+    b3 = 0.8665 * b3 + white * 0.3104856;
+    b4 = 0.55 * b4 + white * 0.5329522;
+    b5 = -0.7616 * b5 - white * 0.016898;
+    data[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362) * 0.11;
+    b6 = white * 0.115926;
+  }
   return buffer;
 }

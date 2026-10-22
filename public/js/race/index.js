@@ -1,49 +1,64 @@
 // The 3D race. main.js only needs two calls:
 //   setField(entrants)                     line up one horse per entrant behind the barrier
 //   run(winnerId, { laps, onCommentary })  run the race, resolving once the winner is announced
-// onCommentary(text, { speech, urgent, excited }) gets each call, with a shorter
-// version for the spoken commentary. Pass { effects } to createRace for sound.
+// onCommentary(text, { urgent, pace }) gets each call from the race caller.
+// Pass { effects } to createRace for sound.
+//
+// Graphics quality starts high and steps down on slower computers. Add
+// ?quality=low, medium or high to the address to fix it.
 import * as THREE from 'three';
 import { OutlineEffect } from 'three/addons/effects/OutlineEffect.js';
 import { CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
 import { badgeStyle } from '../silks.js';
 import { createDirector } from './camera.js';
+import { createCaller } from './caller.js';
 import { HORSE_LENGTH, NOSE, createHorse, gallop } from './horse.js';
+import { LOOK_AHEAD, createPack } from './pack.js';
 import { CRUISE_SPEED, ROW_GAP, createRaceScript, startingSlot } from './script.js';
 import { INK } from './toon.js';
-import { HOME_STRAIGHT_RUN, LAP_LENGTH, buildVenue, isOnStraight, trackPoint } from './track.js';
+import { HOME_STRAIGHT_RUN, LAP_LENGTH, RADIUS, STRAIGHT, buildVenue, isOnStraight, trackPoint } from './track.js';
 
-const LANE_WIDTH = 1.35;
-const LANE_COUNT = 11;
-const FIRST_LANE = 0.9; // offset of the innermost lane from the inside rail
-const CLEARANCE = HORSE_LENGTH + 0.3; // gap needed to cut in front of another horse
+const INSIDE = 0.8; // closest a horse runs to the inside rail
+const OUTSIDE = 15.2; // ...and to the outside rail
+const START_LANE_WIDTH = 1.75;
 const COUNT_SECONDS = 0.9;
 const CLOSE_FINISH = 1.2; // winning margin (metres) that triggers a photo finish
 const BOARD_ROWS = 8;
 const ROW_HEIGHT = 26;
 // Camera rotation during the race: [shot, seconds]
 const RACE_SHOTS = [['tracking', 6], ['chase', 5], ['blimp', 5], ['inside', 5], ['headon', 4.5]];
-const LEAD_CALLS = ['takes the lead!', 'hits the front!', 'surges to the lead!', 'grabs the lead!', 'goes to the front!'];
-const BACK_IN_FRONT_CALLS = ['is back in front!', 'regains the lead!', 'hits the front again!'];
 // How close each camera shot is to the horses, for the volume of the hooves
 const SHOT_NEARNESS = { idle: 0, start: 0.5, tracking: 0.7, inside: 0.6, chase: 0.85, headon: 1, blimp: 0.25, stretch: 1, finish: 0.9, winner: 0.6 };
-
-const pick = (options) => options[Math.floor(Math.random() * options.length)];
-const tag = (horse) => `#${horse.number} ${horse.name}`;
+// The last lap's landmarks, as distance still to run, for the race caller
+const BEND = Math.PI * RADIUS;
+const LANDMARKS = {
+  backStraight: LAP_LENGTH - (STRAIGHT + BEND - HOME_STRAIGHT_RUN),
+  homeTurn: HOME_STRAIGHT_RUN + BEND,
+  straight: HOME_STRAIGHT_RUN,
+};
+const QUALITY = {
+  high: { pixelRatio: 2, shadows: 2048, grass: 45000, flowers: 1500 },
+  medium: { pixelRatio: 1.25, shadows: 1024, grass: 16000, flowers: 600 },
+  low: { pixelRatio: 1, shadows: 0, grass: 0, flowers: 0 },
+};
+const LEVELS = ['high', 'medium', 'low'];
 
 export function createRace(container, { effects = null } = {}) {
+  const requested = new URLSearchParams(window.location.search).get('quality');
+  const quality = { level: LEVELS.includes(requested) ? requested : 'high', fixed: LEVELS.includes(requested) };
+
   const renderer = new THREE.WebGLRenderer({ antialias: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.shadowMap.type = THREE.PCFShadowMap;
   container.appendChild(renderer.domElement);
-  const outlines = new OutlineEffect(renderer, { defaultThickness: 0.0035, defaultColor: new THREE.Color(INK).toArray() });
+  const outlines = new OutlineEffect(renderer, { defaultThickness: 0.0028, defaultColor: new THREE.Color(INK).toArray() });
 
   const labelRenderer = new CSS2DRenderer();
   labelRenderer.domElement.className = 'race-labels';
   container.appendChild(labelRenderer.domElement);
 
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(45, 1, 0.5, 1500);
-  const venue = buildVenue(scene);
+  const camera = new THREE.PerspectiveCamera(45, 1, 0.5, 1600);
+  const venue = buildVenue(scene, QUALITY[quality.level]);
   const director = createDirector(camera);
   const hud = createHud(container);
   const confetti = createConfetti(scene);
@@ -54,8 +69,37 @@ export function createRace(container, { effects = null } = {}) {
   let time = 0;
   const point = {};
 
+  function applyQuality(level) {
+    quality.level = level;
+    const settings = QUALITY[level];
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, settings.pixelRatio));
+    const shadows = settings.shadows > 0;
+    if (renderer.shadowMap.enabled !== shadows) {
+      renderer.shadowMap.enabled = shadows;
+      scene.traverse((object) => {
+        for (const material of [object.material].flat()) if (material) material.needsUpdate = true;
+      });
+    }
+    venue.setQuality(settings);
+    for (const horse of horses) horse.shadow.visible = !shadows; // a soft blob instead
+    resize();
+  }
+
+  // Step down a quality level if it's running below about 32 frames a second,
+  // judged over two-second windows once things have settled
+  const frames = { count: 0, since: performance.now() + 3000 };
+  function watchFrameRate(now) {
+    if (quality.fixed || quality.level === 'low' || now < frames.since) return;
+    frames.count++;
+    const elapsed = (now - frames.since) / 1000;
+    if (elapsed < 2) return;
+    if (frames.count / elapsed < 32) applyQuality(LEVELS[LEVELS.indexOf(quality.level) + 1]);
+    frames.count = 0;
+    frames.since = now;
+  }
+
   function placeHorse(horse, yawOffset = 0) {
-    trackPoint(horse.s - NOSE, FIRST_LANE + horse.lane * LANE_WIDTH, point);
+    trackPoint(horse.s - NOSE, horse.y, point);
     horse.group.position.set(point.x, 0, point.z);
     horse.group.rotation.y = Math.atan2(-point.dz, point.dx) - yawOffset;
   }
@@ -70,7 +114,8 @@ export function createRace(container, { effects = null } = {}) {
     horses = entrants.map((entrant, index) => {
       const horse = createHorse(entrant, index);
       const slot = startingSlot(index);
-      Object.assign(horse, { s: -slot.row * ROW_GAP, lane: slot.lane, targetLane: slot.lane, laneClock: 0, step: 0 });
+      Object.assign(horse, { s: -slot.row * ROW_GAP, y: INSIDE + 0.1 + slot.lane * START_LANE_WIDTH, step: 0 });
+      horse.shadow.visible = !renderer.shadowMap.enabled;
       placeHorse(horse);
       scene.add(horse.group);
       return horse;
@@ -83,87 +128,60 @@ export function createRace(container, { effects = null } = {}) {
   }
 
   function run(winnerId, { laps = 3, onCommentary = () => {} } = {}) {
-    const script = createRaceScript({ ids: horses.map((h) => h.id), winnerId, laps, lapLength: LAP_LENGTH });
+    const ids = horses.map((h) => h.id);
+    const script = createRaceScript({ ids, winnerId, laps, lapLength: LAP_LENGTH });
+    const close = script.margin < CLOSE_FINISH;
     return new Promise((resolve) => {
       race = {
         script,
         laps,
         resolve,
-        say: onCommentary,
+        close,
         winner: horses.find((h) => h.id === winnerId),
-        close: script.margin < CLOSE_FINISH,
+        pack: createPack({ ids, winnerId, startY: horses.map((h) => h.y), inside: INSIDE, outside: OUTSIDE }),
+        caller: createCaller({ laps, distance: script.distance, lapLength: LAP_LENGTH, landmarks: LANDMARKS, horseLength: HORSE_LENGTH, style: script.style, close, winnerId }),
+        speak: (call) => onCommentary(call.text, { urgent: call.urgent, pace: call.pace }),
         phase: 'countdown', // countdown -> running -> (photo) -> finished
         clock: 0, // real seconds in the current phase
         time: 0, // race seconds (slows down in slow motion)
         timeScale: 1,
         slowTo: 1,
+        push: 0, // how hard the jockeys are riding
         order: null,
         lap: 1,
-        leaderId: null,
-        lastLeadCall: -Infinity,
         shot: 0,
         shotClock: 0,
         boardClock: 0,
         said: new Set(),
-        hasLed: new Set(),
       };
       hud.showBoard(horses, laps);
       director.cut('start');
-      race.say(pick(["They're loading into the barriers...", 'The field settles behind the barrier...']));
+      race.speak(race.caller.loading(horses));
     });
   }
 
-  // Horses ahead get first pick of lanes. Everyone else keeps their lane if it's
-  // clear, swings out to get around a horse in front, and drifts back to the rail.
-  function chooseLanes(order, dt) {
-    const placed = [];
-    for (const horse of order) {
-      horse.laneClock -= dt;
-      const isClear = (lane) =>
-        lane >= 0 &&
-        lane < LANE_COUNT &&
-        placed.every((other) => Math.abs(other.s - horse.s) > CLEARANCE || Math.abs(other.targetLane - lane) >= 1);
-
-      if (!isClear(horse.targetLane)) {
-        for (let step = 1; step < LANE_COUNT; step++) {
-          if (isClear(horse.targetLane + step)) {
-            horse.targetLane += step;
-            break;
-          }
-          if (isClear(horse.targetLane - step)) {
-            horse.targetLane -= step;
-            break;
-          }
-        }
-        horse.laneClock = 1.2;
-      } else if (horse.laneClock <= 0 && horse.targetLane > 0 && isClear(horse.targetLane - 1)) {
-        horse.targetLane -= 1;
-        horse.laneClock = 0.8;
-      }
-      placed.push(horse);
-    }
-  }
-
   function moveHorses(raceDt) {
+    if (raceDt > 0) {
+      const t = race.time;
+      race.pack.step(raceDt, new Map(horses.map((h) => [h.id, { s: race.script.positionAt(h.id, t), ahead: race.script.positionAt(h.id, t + LOOK_AHEAD) }])));
+    }
     for (const horse of horses) {
-      const s = race.script.positionAt(horse.id, race.time);
-      horse.step = Math.max(0, s - horse.s);
+      const { s, y, vy } = race.pack.get(horse.id);
+      horse.step = Math.max(0, s - horse.s); // never backwards
       horse.s += horse.step;
+      horse.y = y;
+      horse.vy = vy;
     }
     const order = [...horses].sort((a, b) => b.s - a.s);
-    if (raceDt > 0) chooseLanes(order, raceDt);
 
     const leaders = order.slice(0, 3);
     const leaderSpeed = raceDt > 0 ? leaders.reduce((sum, h) => sum + h.step, 0) / leaders.length / raceDt : 0;
     race.speed = Math.min(1, leaderSpeed / CRUISE_SPEED);
 
     for (const horse of order) {
-      const before = horse.lane;
-      horse.lane += (horse.targetLane - horse.lane) * (1 - Math.exp(-raceDt * 2.2));
       const speed = raceDt > 0 ? horse.step / raceDt : 0;
-      const drift = raceDt > 0 ? ((horse.lane - before) * LANE_WIDTH) / raceDt : 0;
-      placeHorse(horse, Math.atan2(drift, Math.max(speed, 4)));
-      gallop(horse, horse.step, Math.min(1, speed / CRUISE_SPEED));
+      placeHorse(horse, Math.atan2(horse.vy, Math.max(speed, 4)));
+      gallop(horse, horse.step, Math.min(1, speed / CRUISE_SPEED), race.push);
     }
     return order;
   }
@@ -182,25 +200,22 @@ export function createRace(container, { effects = null } = {}) {
     hud.callout('GO!');
     effects?.cue('go');
     director.cut(RACE_SHOTS[0][0]);
-    race.say(pick(["And they're racing!", "They're off and racing!", 'The barriers fly open and away they go!']), { urgent: true });
+    race.speak(race.caller.jump());
     return 0.4;
   }
 
   function announce() {
-    const { winner, script } = race;
-    race.said.add('result');
+    const { winner } = race;
+    const wasPhoto = race.phase === 'photo';
     race.phase = 'finished';
     race.clock = 0;
     race.slowTo = 1;
     hud.setSuspense(false);
     labelRenderer.domElement.hidden = false;
     hud.setTitle('RESULT');
-    const margin = describeMargin(script.margin);
-    race.say(`${tag(winner)} wins the Melbourne Cup by ${margin}!`, {
-      speech: `And the winner is... ${winner.name}! By ${margin}!`,
-      urgent: true,
-      excited: true,
-    });
+    const runnerUp = race.order.find((h) => h !== winner);
+    const margin = runnerUp && winner.s > runnerUp.s ? winner.s - runnerUp.s : race.script.margin;
+    race.speak(race.caller.result(winner.name, margin, wasPhoto));
     effects?.cue('cheer');
     confetti.burst();
     race.resolve();
@@ -209,54 +224,33 @@ export function createRace(container, { effects = null } = {}) {
   // Commentary, camera cuts and slow motion while the horses are running
   function callTheRace(dt) {
     const { script, order } = race;
-    const [leader, second, third] = order;
+    const [leader] = order;
     const toLine = script.finishTime - race.time;
     const lap = Math.min(race.laps, Math.floor(Math.max(0, leader.s) / LAP_LENGTH) + 1);
-    // Called as the leaders round the home turn, so it isn't talked over by the finish
     const homeTurn = lap === race.laps && leader.s > script.distance - HOME_STRAIGHT_RUN - 25;
+
+    const call = race.caller.update(
+      race.time,
+      order.map((h) => ({ id: h.id, name: h.name, s: h.s, y: h.y })),
+      toLine,
+    );
+    if (call) race.speak(call);
 
     if (lap > race.lap) {
       race.lap = lap;
-      race.lastLeadCall = race.time;
       if (lap === race.laps) {
         hud.callout('FINAL LAP');
         effects?.cue('bell');
-        race.say(`The bell rings, final lap! ${tag(leader)} leads from ${tag(second)}.`, {
-          speech: `The bell! Final lap! ${leader.name} leads.`,
-          urgent: true,
-          excited: true,
-        });
-      } else {
-        const chasers = third ? `, ${tag(second)} second, ${tag(third)} third` : ` from ${tag(second)}`;
-        race.say(`Lap ${lap} of ${race.laps}: ${tag(leader)} leads${chasers}.`, {
-          speech: `Lap ${lap}. ${leader.name} leads from ${second.name}.`,
-        });
       }
-    } else if (race.leaderId !== null && leader.id !== race.leaderId && race.time - race.lastLeadCall > 4 && toLine > 3) {
-      race.say(`${tag(leader)} ${pick(race.hasLed.has(leader.id) ? BACK_IN_FRONT_CALLS : LEAD_CALLS)}`);
-      race.lastLeadCall = race.time;
     }
-    race.leaderId = leader.id;
-    race.hasLed.add(leader.id);
-
     if (homeTurn && !race.said.has('home')) {
       race.said.add('home');
       director.cut('stretch');
       effects?.cue('roar');
-      race.say(`They turn for home! ${tag(leader)} and ${tag(second)} fight it out down the straight!`, {
-        speech: `They turn for home! ${leader.name} and ${second.name}!`,
-        urgent: true,
-        excited: true,
-      });
     }
-    if (toLine < 2.2 && !race.said.has('line')) {
-      race.said.add('line');
-      if (race.close) {
-        race.say("Here they come... it's going to be desperately close!", { speech: "It's going to be desperately close!", excited: true });
-      } else {
-        race.say('Here they come to the line!', { excited: true });
-      }
-    }
+    // The jockeys get down to work on the last lap and ride flat out in the straight
+    const pushTo = race.said.has('home') ? 1 : lap === race.laps ? 0.35 : 0;
+    race.push += (pushTo - race.push) * Math.min(1, dt * 2);
 
     // Slow motion into the line; a photo-finish camera if it's close
     if (race.close && toLine < 1.2 && !race.said.has('slow')) {
@@ -278,7 +272,7 @@ export function createRace(container, { effects = null } = {}) {
       hud.flash();
       hud.callout('PHOTO FINISH');
       effects?.cue('gasp');
-      race.say('Photo finish! Too close to call...', { speech: 'Photo finish!', urgent: true, excited: true });
+      race.speak(race.caller.photo());
       return;
     }
 
@@ -312,8 +306,16 @@ export function createRace(container, { effects = null } = {}) {
     race.time = next;
     race.order = moveHorses(raceDt);
 
-    if (race.phase === 'running') callTheRace(dt);
-    else if (race.phase === 'finished' && race.clock > 1.5 && director.shot !== 'winner') director.cut('winner');
+    if (race.phase === 'running') {
+      callTheRace(dt);
+    } else if (race.phase === 'finished') {
+      race.push += (0 - race.push) * Math.min(1, dt);
+      if (race.clock > 1.5 && director.shot !== 'winner') director.cut('winner');
+      if (race.clock > 3.5 && !race.said.has('placings')) {
+        race.said.add('placings');
+        race.speak(race.caller.placings(race.order));
+      }
+    }
 
     race.boardClock -= dt;
     if (race.boardClock <= 0) {
@@ -347,18 +349,21 @@ export function createRace(container, { effects = null } = {}) {
     camera.updateProjectionMatrix();
   }
   new ResizeObserver(resize).observe(container);
+  applyQuality(quality.level);
 
   let last = performance.now();
   renderer.setAnimationLoop((now) => {
     const dt = Math.min(0.1, (now - last) / 1000);
     last = now;
     time += dt;
+    watchFrameRate(now);
 
     const wantExcitement = race ? stepRace(dt) : 0.08;
     excitement += (wantExcitement - excitement) * Math.min(1, dt * 2);
-    venue.update(time, excitement);
     confetti.update(dt, race?.winner.group.position);
-    director.update(focus());
+    const focused = focus();
+    director.update(focused);
+    venue.update(time, excitement, trackPoint(focused.s, 7, point), camera.position);
     effects?.update({
       excitement,
       gallop: race?.speed ?? 0,
@@ -372,17 +377,6 @@ export function createRace(container, { effects = null } = {}) {
   });
 
   return { setField, run };
-}
-
-function describeMargin(metres) {
-  if (metres < 0.25) return 'a nose';
-  if (metres < 0.45) return 'a short head';
-  if (metres < 0.7) return 'a head';
-  if (metres < 1.1) return 'a neck';
-  if (metres < 1.6) return 'half a length';
-  if (metres < 2.2) return 'three-quarters of a length';
-  const lengths = Math.round((metres / HORSE_LENGTH) * 2) / 2;
-  return lengths <= 1 ? 'a length' : `${lengths} lengths`;
 }
 
 // Leaderboard, big call-outs (countdown, FINAL LAP, PHOTO FINISH) and the flash

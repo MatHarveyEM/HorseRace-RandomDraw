@@ -62,24 +62,19 @@ export function silksBackground({ primary, secondary, pattern }) {
   }
 }
 
-// The same pattern painted onto a canvas, for the jockey's shirt texture
-export function paintSilks(ctx, width, height, { primary, secondary, pattern }) {
-  ctx.fillStyle = primary;
-  ctx.fillRect(0, 0, width, height);
-  ctx.fillStyle = secondary;
-  if (pattern === 'hoops') {
-    for (let y = 0; y < height; y += height / 4) ctx.fillRect(0, y, width, height / 8);
-  } else if (pattern === 'stripes') {
-    for (let x = 0; x < width; x += width / 8) ctx.fillRect(x, 0, width / 16, height);
-  } else if (pattern === 'sash') {
-    ctx.beginPath();
-    ctx.moveTo(0, height * 0.3);
-    ctx.lineTo(width, height * 0.7);
-    ctx.lineTo(width, height);
-    ctx.lineTo(0, height * 0.6);
-    ctx.fill();
-  } else if (pattern === 'quarters') {
-    ctx.fillRect(0, 0, width / 2, height / 2);
-    ctx.fillRect(width / 2, height / 2, width / 2, height / 2);
+// The silks pattern at a point on the jockey's shirt, for painting it onto the
+// 3D rider: u goes around the body (0..1), v runs from the hips to the shoulders
+export function silksColourAt({ primary, secondary, pattern }, u, v) {
+  switch (pattern) {
+    case 'hoops':
+      return Math.floor(v * 5) % 2 ? secondary : primary;
+    case 'stripes':
+      return Math.floor(u * 10) % 2 ? secondary : primary;
+    case 'sash':
+      return Math.abs(((u + v * 0.5) % 1) - 0.5) < 0.12 ? secondary : primary;
+    case 'quarters':
+      return u < 0.5 !== v < 0.5 ? secondary : primary;
+    default:
+      return primary;
   }
 }

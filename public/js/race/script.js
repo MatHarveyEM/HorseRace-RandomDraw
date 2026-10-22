@@ -14,13 +14,17 @@
 // This file has no Three.js dependency so it can be unit tested in Node.
 
 export const CRUISE_SPEED = 22; // track units (metres) per second
-export const START_LANES = 10; // horses per row at the start
+export const START_LANES = 8; // horses per row at the start
 export const ROW_GAP = 3.2; // distance between rows at the start
 
 const START_ACCEL = 1.2; // seconds to get up to speed out of the gates
 const KEYFRAME_SECONDS = 3.2;
 const MAX_SURGE_SPEED = 4; // fastest a horse can gain or lose ground on the pack (units/s)
 const PULL_UP_SECONDS = 5; // time to slow to a stop after the finish
+// No more than this many horses within one body length of each other, so the
+// field always fits across the track with room to move
+const MAX_ABREAST = 7;
+const BODY_LENGTH = 3.0;
 
 export function startingSlot(index) {
   return { lane: index % START_LANES, row: Math.floor(index / START_LANES) };
@@ -51,14 +55,17 @@ export function createRaceScript({ ids, winnerId, laps, lapLength, random = Math
     return row;
   });
 
-  // Mid-race: each horse has a slowly drifting "form" so leaders change gradually
-  const spread = clamp(3 + count * 0.5, 5, 16);
+  // Mid-race: each horse has a slowly drifting "form" so leaders change gradually.
+  // Bigger fields spread out further so they still fit on the track.
+  const spread = clamp(3 + count * 0.5, 5, 30);
   const form = ids.map(() => rand(-1, 1));
   for (let k = 1; k < keyCount; k++) {
-    const stringOut = Math.min(1, k / 2.5); // the field spreads out after the start
+    const stringOut = Math.min(1, (k - 1) / 2); // the field strings out after the jump
     for (let i = 0; i < count; i++) {
       form[i] = clamp(form[i] + rand(-0.45, 0.45), -1, 1);
-      offsets[i][k] = spread * stringOut * (0.75 * form[i] + 0.25 * rand(-1, 1));
+      const settled = spread * (0.75 * form[i] + 0.25 * rand(-1, 1));
+      // Out of the gates the rows hold their order, so nobody runs into the row ahead
+      offsets[i][k] = stringOut * settled + (1 - stringOut) * (offsets[i][0] + rand(-0.6, 0.6));
     }
   }
 
@@ -108,6 +115,15 @@ export function createRaceScript({ ids, winnerId, laps, lapLength, random = Math
     for (let k = keyCount - 1; k >= 1; k--) {
       const maxStep = MAX_SURGE_SPEED * (keyTimes[k + 1] - keyTimes[k]);
       row[k] = clamp(row[k], row[k + 1] - maxStep, row[k + 1] + maxStep);
+    }
+  }
+
+  // Thin out any bunch too big to fit across the track by easing the back of it back
+  for (let k = 1; k < keyCount; k++) {
+    const order = ids.map((_, i) => i).sort((a, b) => offsets[b][k] - offsets[a][k]);
+    for (let n = MAX_ABREAST; n < order.length; n++) {
+      const limit = offsets[order[n - MAX_ABREAST]][k] - BODY_LENGTH;
+      if (offsets[order[n]][k] > limit) offsets[order[n]][k] = limit;
     }
   }
 

@@ -319,6 +319,36 @@ button:disabled {
   gap: 2px;
 }
 
+.entrant-list li {
+  align-items: center;
+}
+
+.entrant-list .label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.remove-button {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--grey);
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.remove-button:hover:not(:disabled) {
+  border-color: var(--coral);
+  background: transparent;
+  color: var(--coral);
+}
+
 li.placeholder {
   color: var(--grey);
   font-style: italic;
